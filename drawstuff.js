@@ -194,16 +194,16 @@ function raycasting(context) {
             var N = Maths.unitvector(Ce,ps); //FIXME
             var L = Maths.unitvector(ps,custom_Lights);
             var factor = Maths.dotproduct(N,L);
-            if (factor > 1)
-              throw "factor > 1 not possible";
+            // if (factor > 1)
+            //   throw "factor > 1 not possible";
             var I = [0,0,0];
             I = Maths.add(I, inputSpheres[s].ambient);
             var InShadow = false;
             for(var sh_sp = 0; sh_sp<n; sh_sp++) {
-              if (sh_sp != s) {
+              if (sh_sp != s && shadows) {
                 var Ce_s = [inputSpheres[sh_sp].x, inputSpheres[sh_sp].y, inputSpheres[sh_sp].z];
-                if (Maths.ray_sphere_intersect([2,4,0.5],ps,Ce_s,inputSpheres[sh_sp].r)){
-                  //InShadow = true;
+                if (Maths.ray_sphere_intersect([2,4,-0.5],ps,Ce_s,inputSpheres[sh_sp].r)){
+                  InShadow = true;
                   break;
                 }
               }
@@ -230,10 +230,10 @@ function raycasting(context) {
                 I = Maths.add(I, math.dotMultiply(lights[ls].ambient, inputSpheres[s].ambient));
                 InShadow = false;
                 for(var sh_sp = 0; sh_sp < n; sh_sp++) {
-                  if (sh_sp != s) {
+                  if (sh_sp != s && shadows) {
                     var Ce_s = [inputSpheres[sh_sp].x, inputSpheres[sh_sp].y, inputSpheres[sh_sp].z];
                     if (Maths.ray_sphere_intersect([lights[ls].x, lights[ls].y, lights[ls].z],ps,Ce_s,inputSpheres[sh_sp].r)){
-                      //InShadow = true;
+                      InShadow = true;
                       break;
                     }
                   }
@@ -266,10 +266,12 @@ function raycasting(context) {
   //  then:
   if (render_triangles && (inputTriangles != String.null)) {
     var n = inputTriangles.length;
+    var ver = inputTriangles[1].vertices;
     // Loop over the triangles, draw each in 2d
     // FIXME made s < 1 should be s<n
     for (var s=0; s<1; s++) {
-      var vertices = inputTriangles[1].vertices;
+      var inde = inputTriangles[2].triangles;
+      var vertices = [ver[inde[s][0]], ver[inde[s][1]], ver[inde[s][2]]];
       // For triangles
       var A = [ [vertices[0][0], vertices[1][0], vertices[2][0]],
                 [vertices[0][1], vertices[1][1], vertices[2][1]],
@@ -281,8 +283,6 @@ function raycasting(context) {
         var v = Maths.minus(real_coord, vp.eye);
         var intersect = Maths.line_plane_intersection(vertices[0],vertices[1],vertices[2],vp.eye,v);
         var PP = math.multiply(A_inv, intersect);
-        if (intersect[2] != 0.25)
-          console.log("Error");
         for(var i = 0; i < PP.length; i++) {
           if ((PP[i]<0))
             continue pixel;
@@ -358,7 +358,7 @@ function main(render) {
   custom_Lights = [parse_val("clx",2),parse_val("cly", 4), parse_val("clz",-0.5)];
   var look_at = [parse_val("lx",0.5),parse_val("ly", 0.5), parse_val("lz",1)];
   var look_up = [parse_val("vx",0),parse_val("vy", 1), parse_val("vz",0)];
-  var d = 0.5;
+  var d = parse_val("d",0.5);
   var c = [0.5, 0.5, eye[2]+0.5];
   vp = new ViewPane (canvas.width, canvas.height, eye, look_up, look_at, d, c, parse_val("asp_x", 1), parse_val("asp_y", 1));
   // Render image using ray casting techniques.
