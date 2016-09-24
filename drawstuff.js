@@ -48,6 +48,10 @@ class ViewPane {
     this.w = width;
     this.h = height;
     this.eye = eye;
+    if ((this.w != this.h) && asp_x==1 && asp_y==1){
+      asp_x = this.w/Math.min(this.w,this.h);
+      asp_y = this.h/Math.min(this.w,this.h);
+    }
     this.asp_x = asp_x;
     this.asp_y = asp_y;
     this.look_up = look_up;
@@ -74,6 +78,8 @@ var pixels = [];
 var external_lighting;
 var render_triangles;
 var blinn_phong;
+var custom_Lights;
+var shadows;
 /* utility functions */
 // draw a pixel at x,y using color
 function drawPixel(imagedata,x,y,color) {
@@ -163,8 +169,6 @@ function raycasting(context) {
           var py = p % numCanvasHeightPixel;
           var coord = [px, py];
           var real = vp.getRealCoord(coord);
-          // real[0] = vp.w/vp.h*real[0];
-          // real[1] = vp.h/vp.w*real[1];
           pixels[p] = [real[0], real[1], real[2], w-px, py, 1233];
           //black background
           drawPixel(imagedata, Math.round(px), Math.round(py), black);
@@ -174,48 +178,72 @@ function raycasting(context) {
         var A = Maths.dotproduct(D,D);
         var B = 2* Maths.dotproduct(D, E_C);
         var C = Maths.dotproduct(E_C,E_C) - (inputSpheres[s].r*inputSpheres[s].r);
-        if (Maths.realroots(A,B,C)) {
+         if (Maths.realroots(A,B,C)) {
           if (!blinn_phong) {
             c.change(inputSpheres[s].diffuse[0]*255, inputSpheres[s].diffuse[1]*255, inputSpheres[s].diffuse[2]*255, 255);
             drawPixel(imagedata, Math.round(pixels[p][3]), Math.round(pixels[p][4]), c);
             continue;
           }
-          if (numCanvasPixels/2 == p)
-            break;
+          // if (numCanvasPixels/2 == p)
+          //   break;
           var t = Maths.leastroot(A,B,C);
           //console.log(t);
           if (t < pixels[p][5] && t > 1) {
             pixels[p][5] = t;
             var ps = Maths.add(vp.eye, Maths.mul(t,D));
             var N = Maths.unitvector(Ce,ps); //FIXME
-            var L = Maths.unitvector(ps,[2,4,-0.5]);
+            var L = Maths.unitvector(ps,custom_Lights);
             var factor = Maths.dotproduct(N,L);
             if (factor > 1)
               throw "factor > 1 not possible";
             var I = [0,0,0];
             I = Maths.add(I, inputSpheres[s].ambient);
-            I = Maths.add(I, Maths.mul(factor, inputSpheres[s].diffuse));
-            // <== End diffuse shading
-            // Specular highlights ==>
-            var R = Maths.minus(Maths.mul(2*factor,N), L);
-            var V = Maths.unitvector(ps, vp.eye);//FIXME
-            //L = Maths.mul(-1,L);
-            var H = Maths.normalise(Maths.add(L,V));
-            factor = Math.pow(Maths.dotproduct(N,H), inputSpheres[s].n);
-            //factor = Math.pow(Maths.dotproduct(R,V), 5);
-            if (factor > 1)
-              throw "factor > 1 not possible";
-            I = Maths.add(I, Maths.mul(factor, inputSpheres[s].specular));
-                     // External light sources
+            var InShadow = false;
+            for(var sh_sp = 0; sh_sp<n; sh_sp++) {
+              if (sh_sp != s) {
+                var Ce_s = [inputSpheres[sh_sp].x, inputSpheres[sh_sp].y, inputSpheres[sh_sp].z];
+                if (Maths.ray_sphere_intersect([2,4,0.5],ps,Ce_s,inputSpheres[sh_sp].r)){
+                  //InShadow = true;
+                  break;
+                }
+              }
+            }
+            if (!InShadow) {
+              I = Maths.add(I, Maths.mul(factor, inputSpheres[s].diffuse));
+              // <== End diffuse shading
+              // Specular highlights ==>
+              var R = Maths.minus(Maths.mul(2*factor,N), L);
+              var V = Maths.unitvector(ps, vp.eye);//FIXME
+              //L = Maths.mul(-1,L);
+              var H = Maths.normalise(Maths.add(L,V));
+              factor = Math.pow(Maths.dotproduct(N,H), inputSpheres[s].n);
+              //factor = Math.pow(Maths.dotproduct(R,V), 5);
+              // if (factor > 1)
+              //   throw "factor > 1 not possible";
+              I = Maths.add(I, Maths.mul(factor, inputSpheres[s].specular));
+              // External light sources
+            }
             if (external_lighting) {
               for(var ls = 0; ls < lights.length; ls++) {
                 L = Maths.unitvector(ps, [lights[ls].x, lights[ls].y, lights[ls].z]);
                 var factor = Maths.dotproduct(N,L);
                 I = Maths.add(I, math.dotMultiply(lights[ls].ambient, inputSpheres[s].ambient));
-                I = Maths.add(I, Maths.mul(factor, math.dotMultiply(lights[ls].diffuse, inputSpheres[s].diffuse)));
-                var H = Maths.normalise(Maths.add(L,V));
-                factor = Math.pow(Maths.dotproduct(N,H), inputSpheres[s].n);
-                I = Maths.add(I, Maths.mul(factor, math.dotMultiply(lights[ls].specular, inputSpheres[s].specular)));
+                InShadow = false;
+                for(var sh_sp = 0; sh_sp < n; sh_sp++) {
+                  if (sh_sp != s) {
+                    var Ce_s = [inputSpheres[sh_sp].x, inputSpheres[sh_sp].y, inputSpheres[sh_sp].z];
+                    if (Maths.ray_sphere_intersect([lights[ls].x, lights[ls].y, lights[ls].z],ps,Ce_s,inputSpheres[sh_sp].r)){
+                      //InShadow = true;
+                      break;
+                    }
+                  }
+                }
+                if (!InShadow){
+                  I = Maths.add(I, Maths.mul(factor, math.dotMultiply(lights[ls].diffuse, inputSpheres[s].diffuse)));
+                  var H = Maths.normalise(Maths.add(L,V));
+                  factor = Math.pow(Maths.dotproduct(N,H), inputSpheres[s].n);
+                  I = Maths.add(I, Maths.mul(factor, math.dotMultiply(lights[ls].specular, inputSpheres[s].specular)));
+                }
               } // Lights iterator
             }
             //Clamp intensity values
@@ -243,40 +271,29 @@ function raycasting(context) {
     for (var s=0; s<1; s++) {
       var vertices = inputTriangles[1].vertices;
       // For triangles
+      var A = [ [vertices[0][0], vertices[1][0], vertices[2][0]],
+                [vertices[0][1], vertices[1][1], vertices[2][1]],
+                [vertices[0][2], vertices[1][2], vertices[2][2]] ];
+      var A_inv = math.inv(A);
       pixel:for (var p=0; p<numCanvasPixels; p++) {
         var real_coord = [pixels[p][0], pixels[p][1], pixels[p][2]];
         // Ray from eye to pixel;
         var v = Maths.minus(real_coord, vp.eye);
         var intersect = Maths.line_plane_intersection(vertices[0],vertices[1],vertices[2],vp.eye,v);
-        // if (intersect == null)
-        //   console.log("Error");
-        // using mathjs library for doing all the complex stuffs.
-        // var abc = Maths.barycentric_val(vertices[0],vertices[1],vertices[2],intersect);
-        // //console.log("a,b="+a+","+b);
+        var PP = math.multiply(A_inv, intersect);
         if (intersect[2] != 0.25)
           console.log("Error");
-        var abc = Maths.barycentric(vertices[0],vertices[1],vertices[2],intersect);
-        for(var i = 0; i < abc.length; i++) {
-          //console.log(bc);
-          if ((abc[i]<0) || (abc[i]>1))
+        for(var i = 0; i < PP.length; i++) {
+          if ((PP[i]<0))
             continue pixel;
         }
-        // var b = Maths.barycentric(vertices[1],vertices[2],vertices[0],intersect);
-        // var ab = Maths.barycentric(vertices[2],vertices[0],vertices[1],intersect);
-        // if (a>1 || a<0 )
-        //   continue pixel;
-        // if (b>1 || b<0 )
-        //   continue pixel;
-        // if (a+b+ab>1 || a+b+ab<0 )
-        //   continue pixel;
         var t = Maths.magnitude(Maths.minus(intersect, vp.eye));
         //console.log(t);
-        if (t <= pixels[p][5] && t > 0.5
-           ) {
+        if (t <= pixels[p][5] && t > 0.5) {
           pixels[p][5] = t;
           // Diffuse shading ==>
           var N = Maths.plane_normal(vertices[0],vertices[1],vertices[2]);
-          var L = Maths.unitvector(intersect, [2,4,-0.5]);
+          var L = Maths.unitvector(intersect, custom_Lights);
           var factor = Maths.dotproduct(N,L);
           var I = [0,0,0];
           // if (intersect[0] < 0.5 && (real_coord[0] > 0.5))
@@ -285,11 +302,20 @@ function raycasting(context) {
           I = Maths.add(I, Maths.mul(factor, inputTriangles[s].material.diffuse));
           // <== End diffuse shading
           // Specular highlights ==>
-          var R = Maths.minus(Maths.mul(2*factor,N), L);
+          //var R = Maths.minus(Maths.mul(2*factor,N), L);
           var V = Maths.unitvector(intersect, vp.eye);
-          factor = Math.pow(Maths.dotproduct(R,V), 5);
+          var H = Maths.normalise(Maths.add(L,V));
+          factor = Math.pow(Maths.dotproduct(N,H), 5);
+          //factor = Math.pow(Maths.dotproduct(R,V), 5);
           I = Maths.add(I, Maths.mul(factor, inputTriangles[s].material.specular));
           // // Normalise or Max it out
+          if (external_lighting) {
+            for(var ls = 0; ls < lights.length; ls++) {
+              L = Maths.unitvector(intersect, [lights[ls].x, lights[ls].y, lights[ls].z]);
+              var factor = Maths.dotproduct(N,L);
+              I = Maths.add(I, math.dotMultiply(lights[ls].ambient, inputSpheres[s].ambient));
+            }
+          }
           for(var i = 0; i < 3; i++) {
             if (I[i] > 1)
               I[i] = 1;
@@ -328,6 +354,8 @@ function main(render) {
   external_lighting = (document.getElementById("e_lights").checked);
   render_triangles = (document.getElementById("triangles").checked);
   blinn_phong = (document.getElementById("blinn").checked);
+  shadows = (document.getElementById("shadows").checked);
+  custom_Lights = [parse_val("clx",2),parse_val("cly", 4), parse_val("clz",-0.5)];
   var look_at = [parse_val("lx",0.5),parse_val("ly", 0.5), parse_val("lz",1)];
   var look_up = [parse_val("vx",0),parse_val("vy", 1), parse_val("vz",0)];
   var d = 0.5;

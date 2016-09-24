@@ -101,4 +101,14 @@ class Maths {
     // var v = this.minus(ab, this.projection(ab,cb));
     // return (1 - (this.dotproduct(v,ap)/this.dotproduct(v,ab)));
   }
+
+  static ray_sphere_intersect(p1,p2,Ce,r){
+    var E_C = Maths.minus(p2, Ce);
+    E_C[2] = -1*E_C[2];
+    var D = Maths.minus(p1, p2);
+    var A = Maths.dotproduct(D,D);
+    var B = 2* Maths.dotproduct(D, E_C);
+    var C = Maths.dotproduct(E_C,E_C) - (r*r);
+    return (this.realroots(A,B,C));
+   }
 }
