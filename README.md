@@ -15,4 +15,5 @@
 7. (NEW) Support for changing the distance of viewport from eye.</br>
 8. Support for detecting shadows during ray casting.</br>
 9. Ray caster for multiple triangles taken from json file.</br>
-   //NOTE: There was some error in the json file. Used the corrected version of it.</br>
+   NOTE: There was some error in the json file. Used the corrected version of it.</br>
+   Using UI is very intuitive & easy. Each section has either button or input text block to enter values.</br>
