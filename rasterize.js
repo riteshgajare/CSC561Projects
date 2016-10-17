@@ -9,19 +9,15 @@ var Eye = new vec4.fromValues(0.5,0.5,-0.5,1.0); // default eye position in worl
 
 /* webgl globals */
 var gl = null; // the all powerful gl object. It's all here folks!
-var vertexBuffer; // this contains vertex coordinates in triples
-var triangleBuffer; // this contains indices into vertexBuffer in triples
-var normalBuffer;
+
 //var triBufferSize = 0; // the number of indices in the triangle buffer
 var pMatrix = mat4.create();
 var mvMatrix = mat4.create();
+
 var shaderProgram;
 //var viewport;
 // ASSIGNMENT HELPER FUNCTIONS
 // Spheres:
-var coordArray = []; // 1D array of vertex coords for WebGL
-var indexArray = []; // 1D array of vertex indices for WebGL
-var normalArray = [];
 
 var lighting;
 var lookAt = mat4.create();
@@ -114,24 +110,6 @@ function setMatrixUniforms() {
   gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
 }
 
-// render the loaded model
-function renderTriangles() {
-  // vertex buffer: activate and feed into vertex shader
-  gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffer); // activate
-  gl.vertexAttribPointer(shaderProgram.vertexPositionAttrib,vertexBuffer.itemSize,gl.FLOAT,false,0,0); // feed
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-  gl.vertexAttribPointer(shaderProgram.vertexNormalAttrib,normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-  // triangle buffer: activate and render
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffer); // activate
-  gl.drawElements(gl.TRIANGLES,triangleBuffer.numItems,gl.UNSIGNED_SHORT,0); // render
-
-  coordArray = [];
-  indexArray = [];
-  normalArray = [];
-} // end render triangles
-
 
 function createPMatrix() {
   var eye = vec3.fromValues(0.5,0.5,-0.5);
@@ -149,17 +127,15 @@ function createMVMatrix(translation, update){
     setMatrixUniforms(); // send P Matrix & MVMatrix to gpu
 }
 
-function render(){
-    setupBuffer();
-    renderTriangles();
-}
-
 function loadSpheres(){
   var latitudeBands = 30;
   var longitudeBands = 30;
   var inputSpheres = getJSONFile(INPUT_SPHERES_URL, "spheres");
-  var normalData = [];
   var textureCoordData = [];
+  var coordArray = []; // 1D array of vertex coords for WebGL
+  var indexArray = []; // 1D array of vertex indices for WebGL
+  var normalArray = [];
+
   // Source: http://learningwebgl.com/blog/?p=1253
   if (inputSpheres != String.null) {
     var n = inputSpheres.length;
@@ -218,7 +194,9 @@ function loadSpheres(){
         }
       }
       createMVMatrix(center, true);
-      render();
+      var triBuffer = new TriangleBuffer(gl, mvMatrix, shaderProgram);
+      triBuffer.UpdateShaderData(coordArray, indexArray, normalArray);
+      triBuffer.DrawElements();
     } // for all spheres ?
   } // end if spheresURL is null
 } // endfunction
@@ -230,26 +208,24 @@ function loadTriangles() {
   if (inputTriangles != String.null) {
     var whichSetVert; // index of vertex in current triangle set
     var whichSetTri; // index of triangle in current triangle set
-    var vtxBufferSize = 0; // the number of vertices in the vertex buffer
-    var vtxToAdd = []; // vtx coords to add to the coord array
-    var indexOffset = vec3.create(); // the index offset for the current set
-    var triToAdd = vec3.create(); // tri indices to add to the index array
-    var colors = []; // array that holds diffuse colors
 
     for (var whichSet=0; whichSet<inputTriangles.length; whichSet++) {
-      vec3.set(indexOffset,vtxBufferSize,vtxBufferSize,vtxBufferSize); // update vertex offset
+      var vtxToAdd = []; // vtx coords to add to the coord array
+      var indexOffset = vec3.create(); // the index offset for the current set
+      var triToAdd = vec3.create(); // tri indices to add to the index array
+      var normalToAdd = [];
+      var coordArray = []; // 1D array of vertex coords for WebGL
+      var indexArray = []; // 1D array of vertex indices for WebGL
+      var normalArray = [];
 
       // set up the vertex coord array
       for (whichSetVert=0; whichSetVert<inputTriangles[whichSet].vertices.length; whichSetVert++) {
         vtxToAdd = inputTriangles[whichSet].vertices[whichSetVert];
+        normalToAdd = inputTriangles[whichSet].normals[whichSetVert];
+        normalArray.push(normalToAdd[0]);
+        normalArray.push(normalToAdd[1]);
+        normalArray.push(normalToAdd[2]);
         coordArray.push(vtxToAdd[0],vtxToAdd[1],vtxToAdd[2]);
-        colors = inputTriangles[whichSet].material.diffuse;
-        colorArray.push(colors[0], colors[1], colors[2], 1.0);
-        var debugmat = mat4.create();
-        var vec4t =  vec4.fromValues(vtxToAdd[0],vtxToAdd[1], vtxToAdd[2], 1.0);
-        mat4.mul(debugmat, mvMatrix, vec4t);
-        mat4.mul(debugmat, pMatrix, debugmat);
-        console.log(debugmat);
       } // end for vertices in set
 
       // set up the triangle index array, adjusting indices across sets
@@ -257,46 +233,21 @@ function loadTriangles() {
         vec3.add(triToAdd,indexOffset,inputTriangles[whichSet].triangles[whichSetTri]);
         indexArray.push(triToAdd[0],triToAdd[1],triToAdd[2]);
       } // end for triangles in set
-      vtxBufferSize += inputTriangles[whichSet].vertices.length; // total number of vertices
-      //triBufferSize += inputTriangles[whichSet].triangles.length; // total number of tris
+
+      gl.uniform3fv(shaderProgram.ambientColorUniform, inputTriangles[whichSet].material.ambient);
+      gl.uniform3fv(shaderProgram.diffuseColorUniform, inputTriangles[whichSet].material.diffuse);
+      gl.uniform3fv(shaderProgram.specularColorUniform, inputTriangles[whichSet].material.specular);
+      gl.uniform1f(shaderProgram.shinenessUniform, 5.0);
+
+      createMVMatrix(translation, true);
+      var triBuffer = new TriangleBuffer(gl, mvMatrix, shaderProgram);
+      triBuffer.UpdateShaderData(coordArray, indexArray, normalArray);
+      triBuffer.DrawElements();
+
     } // end for each triangle set
     //triBufferSize *= 3; // now total number of indices
-    createMVMatrix(translation, true);
-    render();
   } // end if triangles found
 } // end load triangles
-
-function setupBuffer() {
-  // send the vertex coords to webGL
-  // console.log("colors: "+colorArray.toString());
-  // console.log("coordinates: "+coordArray.toString());
-  // console.log("indices: "+indexArray.toString());
-
-  vertexBuffer = gl.createBuffer(); // init empty vertex coord buffer
-  gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffer); // activate that buffer
-  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(coordArray),gl.STATIC_DRAW); // coords to that buffer
-  vertexBuffer.itemSize = 3;
-  vertexBuffer.numItems = this.coordArray.length/3;
-  // send the triangle indices to webGL
-  triangleBuffer = gl.createBuffer(); // init empty triangle index buffer
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, triangleBuffer); // activate that buffer
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(indexArray),gl.STATIC_DRAW); // indices to that buffer
-  triangleBuffer.itemSize = 1;
-  triangleBuffer.numItems = indexArray.length;
-  // send the triangles colors to webGl
-  // colorBuffer = gl.createBuffer();
-  // gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-  // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colorArray), gl.STATIC_DRAW);
-  // colorBuffer.itemSize = 4;
-  // colorBuffer.numItems = colorArray.length / 4;
-
-  normalBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalArray), gl.STATIC_DRAW);
-  normalBuffer.itemSize = 3;
-  normalBuffer.numItems = normalArray.length / 3;
-
-}
 
 // setup the webGL shaders
 function setupShaders() {
@@ -425,7 +376,7 @@ function main() {
   gl.uniform3fv(shaderProgram.pointLightingLocationUniform, [2,4,-0.5]);
   gl.uniform4fv(shaderProgram.uEyePositionUniform, Eye);
   loadSpheres();
-  //  loadTriangles(); // load in the triangles from tri file
+  loadTriangles(); // load in the triangles from tri file
 
   // setupBuffer();
   // renderTriangles(); // draw the triangles using webGL
