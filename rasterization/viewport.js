@@ -4,7 +4,7 @@
   Viewport class for connecting canvas to WebGL context and doing projections.
 */
 
-// Stolen & Modified accordingly
+// Stolen the idea and modified for my use.
 Viewport = function (gl, shaderProgram) {
   try {
     //Hook up user input ...
@@ -16,7 +16,8 @@ Viewport = function (gl, shaderProgram) {
       this.OnKeyDown(String.fromCharCode(event.shiftKey ? event.which : event.which + 32), event.shiftKey ? event.which+100 : event.which );
     }.bind(this));
     $("body").keyup(function (event) {
-      this.OnKeyUp(String.fromCharCode(event.shiftKey ? event.which : event.which + 32), event.shiftKey ? event.which+100 : event.which );
+     this.OnKeyUp(String.fromCharCode(event.shiftKey ? event.which : event.which + 32), event.shiftKey ? event.which+100 : event.which );
+     this.ClearKeys();
     }.bind(this));
     $("body").blur(function (event) {
       this.ClearKeys();
@@ -399,12 +400,64 @@ Viewport.prototype.StartRenderLoop = function () {
     //   this.triangleBuffers[this.s].SetModelMatrix(mMatrix);
     // }
 
+    // if (this.keyState.tLeft
+    //     || this.keyState.tRigth
+    //     || this.keyState.tForward
+    //     || this.keyState.tBackward
+    //     || this.keyState.tUp
+    //     || this.keyState.tDow
+    //     || this.keyState.tayaw
+    //     || this.keyState.tcyaw
+    //     || this.keyState.tapitch
+    //     || this.keyState.tcpitch
+    //     || this.keyState.taroll
+    //     || this.keyState.tcroll) {
+
+    //   dist = dist/10;
+    //   var translate = [0.0,0.0,0.0];
+    //   var angle = (dHours * 3600) * this.rotationsPerSecond * 2 * Math.PI;
+    //   var mMatrix = this.triangleBuffers[this.s].GetModelMatrix();
+    //   var oriTrans = vec3.create(); //centroid
+    //   mat4.getTranslation(oriTrans,mMatrix);
+    //   var oriRot = quat.create();
+    //   mat4.getRotation(oriRot,mMatrix);
+    //   var rotationMatrix = mat4.create(); // loads identity matrix
+
+    //   if (this.keyState.tayaw)
+    //     quat.rotateY(oriRot, oriRot, -1*angle);
+    //   if (this.keyState.tcyaw)
+    //     quat.rotateY(oriRot, oriRot, angle);
+    //   if (this.keyState.tapitch)
+    //     quat.rotateX(oriRot, oriRot, -1*angle);
+    //   if (this.keyState.tcpitch)
+    //     quat.rotateX(oriRot, oriRot, angle);
+    //   if (this.keyState.taroll)
+    //     quat.rotateZ(oriRot, oriRot, -1*angle);
+    //   if (this.keyState.tcroll)
+    //     quat.rotateZ(oriRot, oriRot, angle);
+    //   if (this.keyState.tLeft)
+    //     translate = [dist,0.0,0.0];
+    //   if (this.keyState.tRigth)
+    //     translate = [-1*dist,0.0,0.0];
+    //   if (this.keyState.tForward)
+    //     translate = [0.0,0.0,dist];
+    //   if (this.keyState.tBackward)
+    //     translate = [0.0,0.0,-1*dist];
+    //   if (this.keyState.tUp)
+    //     translate = [0.0,dist,0.0];
+    //   if (this.keyState.tDown)
+    //     translate = [0.0,-1*dist,0.0];
+    //   vec3.add(oriTrans, oriTrans,translate);
+    //   mat4.fromRotationTranslation(mMatrix, oriRot, oriTrans);// centroid);
+    //   this.triangleBuffers[this.s].SetModelMatrix(mMatrix);
+    // }
+
     if (this.keyState.tLeft
         || this.keyState.tRigth
         || this.keyState.tForward
         || this.keyState.tBackward
         || this.keyState.tUp
-        || this.keyState.tDow
+        || this.keyState.tDown
         || this.keyState.tayaw
         || this.keyState.tcyaw
         || this.keyState.tapitch
@@ -420,18 +473,20 @@ Viewport.prototype.StartRenderLoop = function () {
       mat4.getTranslation(oriTrans,mMatrix);
       var oriRot = quat.create();
       mat4.getRotation(oriRot,mMatrix);
+      var rotationMatrix = quat.create(); // loads identity matrix
+
       if (this.keyState.tayaw)
-        quat.rotateY(oriRot, oriRot, -1*angle);
+        quat.rotateY(rotationMatrix, quat.create(), -1*angle);
       if (this.keyState.tcyaw)
-        quat.rotateY(oriRot, oriRot, angle);
+        quat.rotateY(rotationMatrix, quat.create(), angle);
       if (this.keyState.tapitch)
-        quat.rotateX(oriRot, oriRot, -1*angle);
+        quat.rotateX(rotationMatrix, quat.create(), -1*angle);
       if (this.keyState.tcpitch)
-        quat.rotateX(oriRot, oriRot, angle);
+        quat.rotateX(rotationMatrix, quat.create(), angle);
       if (this.keyState.taroll)
-        quat.rotateZ(oriRot, oriRot, -1*angle);
+        quat.rotateZ(rotationMatrix, quat.create(), -1*angle);
       if (this.keyState.tcroll)
-        quat.rotateZ(oriRot, oriRot, angle);
+        quat.rotateZ(rotationMatrix, quat.create(), angle);
       if (this.keyState.tLeft)
         translate = [dist,0.0,0.0];
       if (this.keyState.tRigth)
@@ -444,8 +499,9 @@ Viewport.prototype.StartRenderLoop = function () {
         translate = [0.0,dist,0.0];
       if (this.keyState.tDown)
         translate = [0.0,-1*dist,0.0];
+      quat.mul(rotationMatrix, rotationMatrix, oriRot);
       vec3.add(oriTrans, oriTrans,translate);
-      mat4.fromRotationTranslation(mMatrix, oriRot, oriTrans);// centroid);
+      mat4.fromRotationTranslation(mMatrix, rotationMatrix, oriTrans);// centroid);
       this.triangleBuffers[this.s].SetModelMatrix(mMatrix);
     }
 
