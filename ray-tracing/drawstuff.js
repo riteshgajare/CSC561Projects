@@ -262,6 +262,7 @@ function raycasting(context) {
       }
     }
   }
+
   // If triangle is found
   //  then:
   if (render_triangles && (inputTriangles != String.null)) {

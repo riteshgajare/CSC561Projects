@@ -3,14 +3,16 @@
 /*
   TriangleBuffer class for doing the rendering
 */
-TriangleBuffer = function (gl, vMatrix, shaderProgram) {
+TriangleBuffer = function (gl, vMatrix, shaderProgram, isSphere) {
   this.selected = false;
   this.gl = gl;
   this.mMatrix = vMatrix;
+  this.originalMatrix = mat4.clone(vMatrix);
   this.shaderProgram = shaderProgram;
   this.normalMatrix = mat3.create();
   mat3.normalFromMat4(this.normalMatrix, this.mMatrix);
   this.lookAt = null;
+  this.isSphere = isSphere;
 }
 
 TriangleBuffer.prototype.GetModelMatrix = function () {
@@ -40,6 +42,7 @@ TriangleBuffer.prototype.AddColor = function (ambient, diffuse, specular, shinen
   this.shineness = shineness;
 }
 
+
 TriangleBuffer.prototype.UpdateShaderData = function (coordArray, indexArray, normalArray) {
   this.coordArray = coordArray;
   this.indexArray = indexArray;
@@ -64,6 +67,10 @@ TriangleBuffer.prototype.UpdateShaderData = function (coordArray, indexArray, no
 
 }
 
+TriangleBuffer.prototype.Reset = function (){
+  this.mMatrix = mat4.clone(this.originalMatrix);
+}
+
 TriangleBuffer.prototype.DrawElements = function () {
 
   var mvMatrix = mat4.create();
@@ -72,7 +79,7 @@ TriangleBuffer.prototype.DrawElements = function () {
   vec4.transformMat4(light, light, this.lookAt);
   this.gl.uniformMatrix4fv(this.shaderProgram.vMatrixUniform, false, this.lookAt);
   //mat4.mul(mvMatrix, this.gl.oMatrix, mvMatrix);
-  this.gl.uniform3fv(shaderProgram.pointLightingLocationUniform, [light[0],light[1], light[2]] );
+  this.gl.uniform3fv(this.shaderProgram.pointLightingLocationUniform, [light[0],light[1], light[2]] );
   this.gl.uniformMatrix4fv(this.shaderProgram.mvMatrixUniform, false, mvMatrix);
   var normalMatrix = mat3.create();
   mat3.normalFromMat4(this.normalMatrix, mvMatrix);

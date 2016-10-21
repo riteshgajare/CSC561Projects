@@ -130,7 +130,7 @@ function loadSpheres(){
       mat4.identity(mMatrix);
       //mat4.mul(vMatrix, oMatrix, vMatrix);
       mat4.translate(mMatrix,mMatrix,center); // model
-      var triBuffer = new TriangleBuffer(gl, mMatrix, shaderProgram);
+      var triBuffer = new TriangleBuffer(gl, mMatrix, shaderProgram, true);
       triBuffer.UpdateShaderData(coordArray, indexArray, normalArray);
       triBuffer.AddColor(inputSpheres[s].ambient,
                          inputSpheres[s].diffuse,
@@ -157,15 +157,21 @@ function loadTriangles() {
       var coordArray = []; // 1D array of vertex coords for WebGL
       var indexArray = []; // 1D array of vertex indices for WebGL
       var normalArray = [];
-
+      var centroid = [0,0,0];
+      var vtxLength = inputTriangles[whichSet].vertices.length;
       // set up the vertex coord array
-      for (whichSetVert=0; whichSetVert<inputTriangles[whichSet].vertices.length; whichSetVert++) {
+      for (whichSetVert=0; whichSetVert<vtxLength; whichSetVert++) {
+        vtxToAdd = inputTriangles[whichSet].vertices[whichSetVert];
+        centroid = [centroid[0]+vtxToAdd[0],centroid[1]+vtxToAdd[1],centroid[2]+vtxToAdd[2]];
+      }
+      centroid = [centroid[0]/vtxLength,centroid[1]/vtxLength,centroid[2]/vtxLength]
+      for (whichSetVert=0; whichSetVert<vtxLength; whichSetVert++) {
         vtxToAdd = inputTriangles[whichSet].vertices[whichSetVert];
         normalToAdd = inputTriangles[whichSet].normals[whichSetVert];
         normalArray.push(normalToAdd[0]);
         normalArray.push(normalToAdd[1]);
         normalArray.push(normalToAdd[2]);
-        coordArray.push(vtxToAdd[0],vtxToAdd[1],vtxToAdd[2]);
+        coordArray.push(vtxToAdd[0]-centroid[0],vtxToAdd[1]-centroid[1],vtxToAdd[2]-centroid[2]);
       } // end for vertices in set
 
       // set up the triangle index array, adjusting indices across sets
@@ -176,7 +182,9 @@ function loadTriangles() {
 
       var mMatrix = mat4.create();
       mat4.identity(mMatrix);
-      var triBuffer = new TriangleBuffer(gl, mMatrix, shaderProgram);
+      mat4.translate(mMatrix,mMatrix,centroid); // model
+      var triBuffer = new TriangleBuffer(gl, mMatrix, shaderProgram, false);
+      triBuffer.centroid = centroid;
       triBuffer.UpdateShaderData(coordArray, indexArray, normalArray);
       triBuffer.AddColor(inputTriangles[whichSet].material.ambient,
                          inputTriangles[whichSet].material.diffuse,
@@ -224,7 +232,7 @@ function setupShaders() {
         void main(void) {
             vec4 mvPosition = uMVMatrix * vec4(vertexPosition, 1.0);
             gl_Position = uPMatrix * mvPosition;
-            vec4 eyePosition = uMVMatrix * uEyePosition;
+            vec4 eyePosition = uVMatrix * uEyePosition;
             vec3 vLightsColor;
             if (!uUseLighting) {
               vLightsColor = uDiffuseColor;
@@ -314,7 +322,7 @@ function main() {
   viewport.SetMoveSpeed(5);
   viewport.SetRotationsPerSecond(0.5);
   viewport.SetViewInformation(Math.PI/2, 0.1, 5.0, [0,0,0]);
-
+  viewport.UpdateLookMatrix();
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
   gl.uniform1i(shaderProgram.useLightingUniform, lighting);
   loadSpheres();
