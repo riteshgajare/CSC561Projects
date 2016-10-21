@@ -1,8 +1,8 @@
 # CSC 561 Computer Graphics
 # Rasterization
-### By Ritesh Gajare
+## By Ritesh Gajare
 
-**The project assignment details are as follows:**
+**The project assignment details are as follows based:**
 
 1. Rendering the input triangle without lighting.
 We can use the lighting toggle switch to on & off the lighting.
@@ -11,5 +11,8 @@ We can use the lighting toggle switch to on & off the lighting.
 4. Interactively change the view of the spheres and triangles using the key binding specified. [Demo](https://plus.google.com/100523281871704763068/posts/PqhFxaEn4zq)
 5. Interactively transform the spheres and triangles around the axis of view centered around the object. [Demo](https://plus.google.com/100523281871704763068/posts/UA19zzVTaHa)
 6. Smooth shading with vertex normals is used for rendering the spheres and triangles. During lighting, we use these normals rather than the normal of the triangles. \
-This is same as calculating the normal by subtracting the vertex from centre.
-7. Class participation
+This is same as calculating the normal by subtracting the vertex from centre. **(Extra Credit)**
+7. Used quaternion matrices to calculate the rotation of the objects. (Avoid gimbal lock) **(Extra Credit)**
+8. Class forum participation.
+
+_References: Wikus Coetser, http://learningwebgl.com/blog/_
