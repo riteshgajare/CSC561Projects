@@ -2,7 +2,7 @@
 # Rasterization
 ### By Ritesh Gajare
 
-**The project assignment details are as follows**
+**The project assignment details are as follows**\
 1. Rendering the input triangle without lighting.
 We can use the lighting toggle switch to on & off the lighting.
 2. Rendering Spheres.
