@@ -5,6 +5,7 @@ const WIN_LEFT = 0; const WIN_RIGHT = 1;  // default left and right x coords in 
 const WIN_BOTTOM = 0; const WIN_TOP = 1;  // default top and bottom y coords in world space
 const INPUT_TRIANGLES_URL = "https://ncsucgclass.github.io/prog2/triangles.json"; // triangles file loc
 const INPUT_SPHERES_URL = "https://ncsucgclass.github.io/prog2/spheres.json"; // spheres file loc
+const INPUT_LIGHTS_URL = "https://ncsucgclass.github.io/prog2/lights.json"
 var Eye = new vec4.fromValues(0.5,0.5,-0.5,1.0); // default eye position in world space
 
 /* webgl globals */
@@ -216,6 +217,7 @@ function setupShaders() {
         attribute vec4 vertexColor;
         attribute vec3 vertexNormal;
 
+        uniform vec3 uExternalLights[3];
         uniform mat4 uVMatrix;
         uniform mat4 uMVMatrix;
         uniform mat4 uPMatrix;
@@ -281,6 +283,7 @@ function setupShaders() {
         gl.enableVertexAttribArray(shaderProgram.vertexNormalAttrib);
 
         shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderProgram.externalLightsUniform = gl.getUniformLocation(shaderProgram, "uExternalLights");
         shaderProgram.vMatrixUniform = gl.getUniformLocation(shaderProgram, "uVMatrix");
         shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
         shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
@@ -323,6 +326,12 @@ function main() {
   viewport.SetRotationsPerSecond(0.5);
   viewport.SetViewInformation(Math.PI/2, 0.1, 5.0, [0,0,0]);
   viewport.UpdateLookMatrix();
+  // var inputLights = getJSONFile(INPUT_LIGHTS_URL, "lights");
+  // if (inputLights != String.null) {
+  //   for(var i = 0; i < inputLights.length; i++) {
+  //     var light = vec3.fromValues();
+  //   }
+  // }
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
   gl.uniform1i(shaderProgram.useLightingUniform, lighting);
   loadSpheres();
