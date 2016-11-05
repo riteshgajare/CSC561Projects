@@ -1,0 +1,7 @@
+[
+  {"x": 0.25, "y": 0.25, "z": 0.5, "r":0.1, "ambient": [0.1,0.1,0.1], "diffuse": [0.6,0.0,0.0], "specular": [0.3,0.3,0.3], "n": 1, "alpha": 1, "texture": "texture1.jpg"},
+  {"x": 0.25, "y": 0.75, "z": 0.5, "r":0.1, "ambient": [0.1,0.1,0.1], "diffuse": [0.0,0.6,0.0], "specular": [0.3,0.3,0.3], "n": 3, "alpha": 0.8, "texture": "texture2.jpg"},
+  {"x": 0.75, "y": 0.75, "z": 0.5, "r":0.1, "ambient": [0.1,0.1,0.1], "diffuse": [0.0,0.0,0.6], "specular": [0.3,0.3,0.3], "n": 5, "alpha": 0.6, "texture": "texture3.jpg"},
+  {"x": 0.75, "y": 0.25, "z": 0.5, "r":0.1, "ambient": [0.1,0.1,0.1], "diffuse": [0.6,0.0,0.6], "specular": [0.3,0.3,0.3], "n": 7, "alpha": 0.4, "texture": "texture4.jpg"},
+  {"x": 0.5, "y": 0.5, "z": 0.5, "r":0.15, "ambient": [0.1,0.1,0.1], "diffuse": [0.6,0.6,0.0], "specular": [0.3,0.3,0.3], "n": 9, "alpha": 0.2, "texture": "texture5.jpg"}
+]
