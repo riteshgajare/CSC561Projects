@@ -3,6 +3,8 @@
 /*
   TriangleBuffer class for doing the rendering
 */
+const INPUT_REPO_URL = "https://ncsucgclass.github.io/prog3/"
+
 TriangleBuffer = function (gl, vMatrix, shaderProgram, isSphere) {
   this.selected = false;
   this.gl = gl;
@@ -13,6 +15,16 @@ TriangleBuffer = function (gl, vMatrix, shaderProgram, isSphere) {
   mat3.normalFromMat4(this.normalMatrix, this.mMatrix);
   this.lookAt = null;
   this.isSphere = isSphere;
+  this.opaque = false;
+  this.noTexture = false;
+  this.id = nextId++;
+}
+
+TriangleBuffer.prototype.GetTranslation = function () {
+
+  var triTrans = vec3.create(); //centroid
+  mat4.getTranslation(triTrans,this.mMatrix);
+  return triTrans;
 }
 
 
@@ -22,6 +34,10 @@ TriangleBuffer.prototype.GetModelMatrix = function () {
 
 TriangleBuffer.prototype.SetModelMatrix = function (mMatrix) {
   this.mMatrix = mMatrix;
+}
+
+TriangleBuffer.prototype.SetPerspcMatrix = function (pMatrix) {
+  this.pMatrix = pMatrix;
 }
 
 TriangleBuffer.prototype.Select = function() {
@@ -36,48 +52,41 @@ TriangleBuffer.prototype.SetLookMatrix = function (lookAt) {
   this.lookAt = lookAt;
 }
 
+TriangleBuffer.prototype.IsOpaque = function () {
+  return this.opaque;
+}
+
 TriangleBuffer.prototype.AddColor = function (ambient, diffuse, specular, shineness, alpha) {
   this.ambient = ambient;
   this.diffuse = diffuse;
   this.specular = specular;
   this.shineness = shineness;
   this.alpha = alpha;
-}
-
-TriangleBuffer.prototype.BindTexture = function () {
-  console.log("Loading the texture data in webgl");
-  this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
-  this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-  this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, texture.image);
-  this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
-  this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_NEAREST);
-  this.gl.generateMipmap(this.gl.TEXTURE_2D);
+  if (alpha == 1.0)
+    this.opaque = true;
 }
 
 TriangleBuffer.prototype.AddTexture = function (imagesrc) {
+  if (imagesrc == false) {
+    this.noTexture = true;
+    return;
+  }
   var texture = this.gl.createTexture();
   texture.image = new Image();
   texture.image.crossOrigin = "anonymous";
   texture.image.onload = function () {
 
-    console.log("Loading the texture data in webgl");
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
     gl.generateMipmap(gl.TEXTURE_2D);
-
-    // gl.bindTexture(gl.TEXTURE_2D, texture);
-    // gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   }
-  texture.image.src = "https://raw.githubusercontent.com/gpjt/webgl-lessons/master/lesson11/moon.gif";//imagesrc;
+  //texture.image.src = "https://raw.githubusercontent.com/gpjt/webgl-lessons/master/lesson11/moon.gif";//imagesrc;
+  texture.image.src = INPUT_REPO_URL + imagesrc;
   this.texture = texture;
 }
-
 
 TriangleBuffer.prototype.UpdateShaderData = function (coordArray, indexArray, normalArray, textureArray) {
   this.coordArray = coordArray;
@@ -117,12 +126,14 @@ TriangleBuffer.prototype.DrawElements = function () {
 
   var mvMatrix = mat4.create();
   mat4.mul(mvMatrix, this.lookAt, this.mMatrix);
-  var light = vec4.fromValues(2,4,-0.5,1);
-  vec4.transformMat4(light, light, this.lookAt);
-  this.gl.uniformMatrix4fv(this.shaderProgram.vMatrixUniform, false, this.lookAt);
-  //mat4.mul(mvMatrix, this.gl.oMatrix, mvMatrix);
-  this.gl.uniform3fv(this.shaderProgram.pointLightingLocationUniform, [light[0],light[1], light[2]] );
-  this.gl.uniformMatrix4fv(this.shaderProgram.mvMatrixUniform, false, mvMatrix);
+  var pvmMatrix = mat4.create();
+  mat4.mul(pvmMatrix, this.pMatrix, mvMatrix);
+
+  this.gl.uniformMatrix4fv(this.shaderProgram.mMatrixUniform, false, this.mMatrix);
+  this.gl.uniformMatrix4fv(this.shaderProgram.pvmMatrixUniform, false, pvmMatrix);
+
+  this.gl.uniform3fv(this.shaderProgram.pointLightingLocationUniform, [2,4,-0.5] );
+
   var normalMatrix = mat3.create();
   mat3.normalFromMat4(this.normalMatrix, mvMatrix);
   this.gl.uniformMatrix3fv(this.shaderProgram.nMatrixUniform, false, this.normalMatrix);
@@ -132,18 +143,23 @@ TriangleBuffer.prototype.DrawElements = function () {
     this.gl.uniform3fv(this.shaderProgram.diffuseColorUniform, [0.5,0.5,0.5]);
     this.gl.uniform3fv(this.shaderProgram.specularColorUniform, [0.0,0.0,0.0]);
     this.gl.uniform1f(this.shaderProgram.shinenessUniform, 1);
+    this.gl.uniform1f(this.shaderProgram.alphaUniform, 1.0);
   }
   else {
     this.gl.uniform3fv(this.shaderProgram.ambientColorUniform, this.ambient);
     this.gl.uniform3fv(this.shaderProgram.diffuseColorUniform, this.diffuse);
     this.gl.uniform3fv(this.shaderProgram.specularColorUniform, this.specular);
     this.gl.uniform1f(this.shaderProgram.shinenessUniform, this.shineness);
+    this.gl.uniform1f(this.shaderProgram.alphaUniform, this.alpha);
   }
-
-  this.gl.activeTexture(this.gl.TEXTURE0);
-  this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-  this.gl.uniform1i(this.shaderProgram.samplerUniform, 0);
-
+  if (!this.noTexture) {
+    this.gl.activeTexture(this.gl.TEXTURE0);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+    this.gl.uniform1i(this.shaderProgram.samplerUniform, 0);
+    this.gl.uniform1i(this.shaderProgram.noTexture, 0);
+  } else {
+    this.gl.uniform1i(this.shaderProgram.noTexture, 1);
+  }
   this.gl.bindBuffer(this.gl.ARRAY_BUFFER,this.vertexBuffer); // activate
   this.gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttrib,this.vertexBuffer.itemSize,this.gl.FLOAT,false,0,0); // feed
 

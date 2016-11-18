@@ -3,9 +3,17 @@
 const WIN_Z = 0;  // default graphics window z coord in world space
 const WIN_LEFT = 0; const WIN_RIGHT = 1;  // default left and right x coords in world space
 const WIN_BOTTOM = 0; const WIN_TOP = 1;  // default top and bottom y coords in world space
+// const INPUT_TRIANGLES_URL = "https://raw.githubusercontent.com/riteshgajare/CSC561Projects/master/ray-tracing/triangles.json"; //"https://ncsucgclass.github.io/prog3/triangles.json"; // triangles file loc
+// const INPUT_SPHERES_URL = "https://raw.githubusercontent.com/riteshgajare/CSC561Projects/master/texturing/spheres.json"; //"https://ncsucgclass.github.io/prog2/spheres.json"; // spheres file loc
+// const INPUT_LIGHTS_URL = "https://ncsucgclass.github.io/prog3/lights.json"
 const INPUT_TRIANGLES_URL = "https://ncsucgclass.github.io/prog3/triangles.json"; // triangles file loc
-const INPUT_SPHERES_URL = "https://ncsucgclass.github.io/prog2/spheres.json"; // spheres file loc
+const INPUT_SPHERES_URL = "https://ncsucgclass.github.io/prog3/spheres.json"; // spheres file loc
 const INPUT_LIGHTS_URL = "https://ncsucgclass.github.io/prog3/lights.json"
+
+var lightAmbient = vec3.fromValues(1,1,1); // default light ambient emission
+var lightDiffuse = vec3.fromValues(1,1,1); // default light diffuse emission
+var lightSpecular = vec3.fromValues(1,1,1); // default light specular emission
+
 var Eye = new vec4.fromValues(0.5,0.5,-0.5,1.0); // default eye position in world space
 
 /* webgl globals */
@@ -13,6 +21,7 @@ var gl = null; // the all powerful gl object. It's all here folks!
 var triangesloaded = false;
 var shaderProgram;
 var viewport;
+var nextId = 0;
 //var viewport;
 // ASSIGNMENT HELPER FUNCTIONS
 
@@ -135,14 +144,13 @@ function loadSpheres(){
       mat4.translate(mMatrix,mMatrix,center); // model
       var triBuffer = new TriangleBuffer(gl, mMatrix, shaderProgram, true);
       triBuffer.UpdateShaderData(coordArray, indexArray, normalArray, textureArray);
-      //triBuffer.AddTexture(inputSpheres[s].texture);
-      triBuffer.AddTexture("bricks.jpg");
+      triBuffer.AddTexture(inputSpheres[s].texture);
       triBuffer.AddColor(inputSpheres[s].ambient,
                          inputSpheres[s].diffuse,
                          inputSpheres[s].specular,
                          inputSpheres[s].n,
-                         1);
-//                         inputSpheres[s]);
+                         //1);
+                         inputSpheres[s].alpha);
       viewport.AddBuffer(triBuffer);
     } // for all spheres ?
   } // end if spheresURL is null
@@ -166,6 +174,8 @@ function loadTriangles() {
       var normalArray = [];
       var centroid = [0,0,0];
       var vtxLength = inputTriangles[whichSet].vertices.length;
+      var textureArray = [];
+      var texToAdd = [];
       // set up the vertex coord array
       for (whichSetVert=0; whichSetVert<vtxLength; whichSetVert++) {
         vtxToAdd = inputTriangles[whichSet].vertices[whichSetVert];
@@ -178,6 +188,9 @@ function loadTriangles() {
         normalArray.push(normalToAdd[0]);
         normalArray.push(normalToAdd[1]);
         normalArray.push(normalToAdd[2]);
+        texToAdd = inputTriangles[whichSet].uvs[whichSetVert];
+        textureArray.push(texToAdd[0]);
+        textureArray.push(texToAdd[1]);
         coordArray.push(vtxToAdd[0]-centroid[0],vtxToAdd[1]-centroid[1],vtxToAdd[2]-centroid[2]);
       } // end for vertices in set
 
@@ -192,14 +205,15 @@ function loadTriangles() {
       mat4.translate(mMatrix,mMatrix,centroid); // model
       var triBuffer = new TriangleBuffer(gl, mMatrix, shaderProgram, false);
       triBuffer.centroid = centroid;
-      triBuffer.UpdateShaderData(coordArray, indexArray, normalArray);
+      triBuffer.UpdateShaderData(coordArray, indexArray, normalArray, textureArray);
       triBuffer.AddTexture(inputTriangles[whichSet].material.texture);
       triBuffer.AddColor(inputTriangles[whichSet].material.ambient,
                          inputTriangles[whichSet].material.diffuse,
                          inputTriangles[whichSet].material.specular,
                          inputTriangles[whichSet].material.n,
                          inputTriangles[whichSet].material.alpha);
-      //triBuffer.DrawElements();
+                         //1.0);
+
       viewport.AddBuffer(triBuffer);
     } // end for each triangle set
   } // end if triangles found
@@ -212,15 +226,53 @@ function setupShaders() {
   var fShaderCode = `
         precision mediump float;
 
-        varying lowp vec4 vColor;
-        varying vec2 vTextureCoord;
+        // eye location
+        uniform vec3 uEyePosition; // the eye's position in world
 
+        // light properties
+        uniform vec3 uLightAmbient; // the light's ambient color
+        uniform vec3 uLightDiffuse; // the light's diffuse color
+        uniform vec3 uLightSpecular; // the light's specular color
+        uniform vec3 uLightPosition; // the light's position
+        uniform bool uNoTexture;
+        // material properties
+        uniform vec3 uAmbient; // the ambient reflectivity
+        uniform vec3 uDiffuse; // the diffuse reflectivity
+        uniform vec3 uSpecular; // the specular reflectivity
+        uniform float uShininess; // the specular exponent
+
+        // geometry properties
+        varying vec3 vWorldPos; // world xyz of fragment
+        varying vec3 vVertexNormal; // normal of fragment
+
+        varying vec2 vTextureCoord;
+        uniform float uAlpha;
         uniform sampler2D uSampler;
 
         void main(void) {
-            //gl_FragColor = vColor;
-            vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-            gl_FragColor = vec4(textureColor.rgb * vColor.xyz, textureColor.a);
+
+            vec3 ambient = uAmbient*uLightAmbient;
+
+            // diffuse term
+            vec3 normal = normalize(vVertexNormal);
+            vec3 light = normalize(uLightPosition - vWorldPos);
+            float lambert = max(0.0,dot(normal,light));
+            vec3 diffuse = uDiffuse*uLightDiffuse*lambert; // diffuse term
+
+            // specular term
+            vec3 eye = normalize(uEyePosition - vWorldPos);
+            vec3 halfVec = normalize(light+eye);
+            float highlight = pow(max(0.0,dot(normal,halfVec)),uShininess);
+            vec3 specular = uSpecular*uLightSpecular*highlight; // specular term
+
+            // combine to output color
+            vec3 colorOut = ambient + diffuse + specular; // no specular yet
+            if (uNoTexture) {
+              gl_FragColor = vec4(colorOut, uAlpha);
+            } else {
+              vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+              gl_FragColor = vec4(textureColor.rgb * colorOut, textureColor.a * uAlpha);
+            }
         }
     `;
 
@@ -228,32 +280,22 @@ function setupShaders() {
   var vShaderCode = `
 
         struct PointLight {
-
              vec3 position;
              vec3 ambient;
              vec3 diffuse;
              vec3 specular;
         };
         attribute vec3 vertexPosition;
-        attribute vec4 vertexColor;
         attribute vec3 vertexNormal;
         attribute vec2 textureCoord;
 
-        uniform vec3 uExternalLights[3];
-        uniform mat4 uVMatrix;
-        uniform mat4 uMVMatrix;
-        uniform mat4 uPMatrix;
-        uniform mat3 uNMatrix;
-        uniform vec3 uAmbientColor;
-        uniform vec3 uDiffuseColor;
-        uniform vec3 uSpecularColor;
-        uniform bool uUseLighting;
-        uniform vec3 uPointLightingLocation;
-        uniform vec4 uEyePosition;
-
-        uniform float uShineness;
-        varying lowp vec4 vColor;
+        varying vec3 vWorldPos; // interpolated world position of vertex
+        varying vec3 vVertexNormal; // interpolated normal for frag shader
         varying vec2 vTextureCoord;
+
+        uniform mat4 upvmMatrix;
+        uniform mat4 umMatrix;
+        uniform mat3 uNMatrix;
 
         // vec3 processLights(vec3 pointLightLocation, vec3 position, vec3 eyeposition) {
         //     vec3 output;
@@ -269,24 +311,14 @@ function setupShaders() {
         // }
 
         void main(void) {
-            vec4 mvPosition = uMVMatrix * vec4(vertexPosition, 1.0);
-            gl_Position = uPMatrix * mvPosition;
-            vec4 eyePosition = uVMatrix * uEyePosition;
-            vec3 vLightsColor;
+            // vertex position
+            vec4 vWorldPos4 = umMatrix * vec4(vertexPosition, 1.0);
+            vWorldPos = vec3(vWorldPos4.x,vWorldPos4.y,vWorldPos4.z);
+            gl_Position = upvmMatrix * vec4(vertexPosition, 1.0);
+            // vertex normal (assume no non-uniform scale)
+            vec4 vWorldNormal4 = umMatrix * vec4(vertexNormal, 0.0);
+            vVertexNormal = normalize(vec3(vWorldNormal4.x,vWorldNormal4.y,vWorldNormal4.z));
             vTextureCoord = textureCoord;
-
-            if (!uUseLighting) {
-              vLightsColor = uDiffuseColor;
-            } else {
-              vec3 lightDirection = normalize(uPointLightingLocation - mvPosition.xyz);
-              vec3 transformedNormal = uNMatrix * vertexNormal;
-              float diffuseFactor = max(dot(transformedNormal, lightDirection), 0.0);
-              vec3 pointVector = normalize(  eyePosition.xyz - mvPosition.xyz);
-              vec3 H = normalize(lightDirection + pointVector);
-              float specularFactor = pow(max(dot(transformedNormal, H), 0.0), uShineness);
-              vLightsColor = uAmbientColor + uDiffuseColor * diffuseFactor + specularFactor * uSpecularColor;
-            }
-            vColor = vec4(clamp(vLightsColor, 0.0, 1.0), 1.0);
         }
     `;
   try {
@@ -323,20 +355,26 @@ function setupShaders() {
         shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "textureCoord")
         gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
 
-        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        //shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
         shaderProgram.externalLightsUniform = gl.getUniformLocation(shaderProgram, "uExternalLights");
-        shaderProgram.vMatrixUniform = gl.getUniformLocation(shaderProgram, "uVMatrix");
-        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+        shaderProgram.pvmMatrixUniform = gl.getUniformLocation(shaderProgram, "upvmMatrix");
+        shaderProgram.mMatrixUniform = gl.getUniformLocation(shaderProgram, "umMatrix");
         shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
-        shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor");
-        shaderProgram.diffuseColorUniform = gl.getUniformLocation(shaderProgram, "uDiffuseColor");
-        shaderProgram.specularColorUniform = gl.getUniformLocation(shaderProgram, "uSpecularColor");
+        // Phong shading
+        shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbient");
+        shaderProgram.diffuseColorUniform = gl.getUniformLocation(shaderProgram, "uDiffuse");
+        shaderProgram.specularColorUniform = gl.getUniformLocation(shaderProgram, "uSpecular");
         shaderProgram.uEyePositionUniform = gl.getUniformLocation(shaderProgram, "uEyePosition");
-        shaderProgram.useLightingUniform = gl.getUniformLocation(shaderProgram, "uUseLighting");
-        shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
-        shaderProgram.shinenessUniform = gl.getUniformLocation(shaderProgram, "uShineness");
+        shaderProgram.shinenessUniform = gl.getUniformLocation(shaderProgram, "uShininess");
+        // texture setup
         shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
-
+        shaderProgram.alphaUniform = gl.getUniformLocation(shaderProgram, "uAlpha");
+        shaderProgram.noTexture = gl.getUniformLocation(shaderProgram, "uNoTexture");
+        // Ligthing setup
+        shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uLightPosition");
+        shaderProgram.lightAmbientULoc = gl.getUniformLocation(shaderProgram, "uLightAmbient"); // ptr to light ambient
+        shaderProgram.lightDiffuseULoc = gl.getUniformLocation(shaderProgram, "uLightDiffuse"); // ptr to light diffuse
+        shaderProgram.lightSpecularULoc = gl.getUniformLocation(shaderProgram, "uLightSpecular"); // ptr to light specular
 
       } // end if no shader program link errors
     } // end if no compile errors
@@ -360,7 +398,6 @@ function main() {
   var lighting = (document.getElementById("e_lights").checked);
   setupWebGL(); // set up the webGL environment
   setupShaders(); // setup the webGL shaders
-  //createPMatrix(); // build the initial setup
   gl.oMatrix = mat4.create();
   mat4.ortho(gl.oMatrix,WIN_LEFT,WIN_RIGHT,WIN_BOTTOM,WIN_TOP,WIN_Z,1);
   viewport = new Viewport(gl,shaderProgram);
@@ -377,9 +414,13 @@ function main() {
   //   }
   // }
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
-  gl.uniform1i(shaderProgram.useLightingUniform, lighting);
+  //Ligthing setup
+  gl.uniform3fv(shaderProgram.lightAmbientULoc,lightAmbient); // pass in the light's ambient emission
+  gl.uniform3fv(shaderProgram.lightDiffuseULoc,lightDiffuse); // pass in the light's diffuse emission
+  gl.uniform3fv(shaderProgram.lightSpecularULoc,lightSpecular); // pass in the light's specular emission
+
   loadSpheres();
-  //loadTriangles(); // load in the triangles from tri file
+  loadTriangles(); // load in the triangles from tri file
 
   $(document).ready(function () {
     viewport.StartRenderLoop();

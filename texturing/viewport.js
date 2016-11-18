@@ -71,6 +71,8 @@ Viewport = function (gl, shaderProgram) {
     this.s = 0;
     this.spSel = false;
     this.triSel = false;
+    this.alphaRenderObjects = [];		// A sorted list
+    this.depths = [];
   } catch (e) {
     throw "Failed to initialize WebGL: " + e;
   }
@@ -127,7 +129,7 @@ Viewport.prototype.SetViewInformation = function (angle, nearClip, farClip, clea
   // Set projection matrix
   var gl = this.gl;
   gl.viewport(0, 0, this.viewportWidth, this.viewportHeight);
-  pMatrix = this.GetViewMatrix();
+  pMatrix = this.CreatePerspcMatrix();
   if (this.shaderProgram) this.UpdateProjectionMatrix(pMatrix);
   gl.clearColor(this.clearColour[0], this.clearColour[1], this.clearColour[2], 1.0);
 }
@@ -206,37 +208,14 @@ Viewport.prototype.OnKeyUp = function (char, keyCode) {
 Viewport.prototype.ClearKeys = function () {
   this.keyCode = -1;
   this.keyState = {
-    forward: false,
-    backward: false,
-    left: false,
-    right: false,
-    up: false,
-    down: false,
-    fpitch: false,
-    bpitch: false,
-    fyaw: false,
-    byaw: false,
-    froll: false,
-    broll: false,
-    tayaw: false,
-    tcyaw: false,
-    tapitch: false,
-    tcpitch: false,
-    taroll: false,
-    tcroll: false,
-    tLeft: false,
-    tUp: false,
-    tDown: false,
-    tForward: false,
-    tBackward: false,
-    tRigth: false
+    forward: false, backward: false, left: false, right: false, up: false, down: false, fpitch: false, bpitch: false, fyaw: false, byaw: false, froll: false, broll: false, tayaw: false, tcyaw: false, tapitch: false, tcpitch: false, taroll: false, tcroll: false, tLeft: false, tUp: false, tDown: false,  tForward: false, tBackward: false, tRigth: false
   };
 }
 
 /*
   Gets the current projection matrix, taking camara position and view vector into account
 */
-Viewport.prototype.GetViewMatrix = function () {
+Viewport.prototype.CreatePerspcMatrix = function () {
   var pMatrix = mat4.create();
   mat4.perspective(pMatrix, this.angle, this.viewportWidth / this.viewportHeight ,this.nearClip, this.farClip);
   return pMatrix;
@@ -250,7 +229,7 @@ Viewport.prototype.UpdateLookMatrix = function () {
 }
 
 Viewport.prototype.UpdateProjectionMatrix = function (pMatrix){
-  this.gl.uniformMatrix4fv(this.shaderProgram.pMatrixUniform, false, pMatrix);
+  this.gl.uniform3fv(this.shaderProgram.uEyePositionUniform, new Float32Array(this.position));
 }
 
 /*
@@ -261,7 +240,7 @@ Viewport.prototype.SetShaderProgram = function (shaderProgram) {
   this.shaderProgram = shaderProgram;
   if (this.angle) {
     // Set projection matrix
-    pMatrix = this.GetViewMatrix();
+    pMatrix = this.CreatePerspcMatrix();
     this.UpdateProjectionMatrix(pMatrix);
   }
 }
@@ -276,24 +255,68 @@ Viewport.prototype.AddBuffer = function (buffer) {
     this.numSpheres += 1;
 }
 
+Viewport.prototype.GetDepth = function(cameraPosition, cameraRotation, objectPosition) {
+  var p0 = cameraPosition[0], p1 = cameraPosition[1], p2 = cameraPosition[2],
+  q0 = cameraRotation[0], q1 = cameraRotation[1], q2 = cameraRotation[2], q3 = cameraRotation[3],
+  l0 = objectPosition[0], l1 = objectPosition[1], l2 = objectPosition[2];
+  return 2*(q1*q3 + q0*q2)*(l0 - p0) + 2*(q2*q3 - q0*q1)*(l1 - p1) + (1 - 2*q1*q1 - 2*q2*q2)*(l2 - p2);
+}
+
+// Borrowed from http://delphic.me.uk/webglalpha.html
+Viewport.prototype.AddTransparentTriangle = function(object, depth) {
+  this.depths[object.id] = depth;
+  // Binary search
+  var less, more, itteration = 1, inserted = false, index = Math.floor(this.alphaRenderObjects.length/2);
+  while(!inserted) {
+    less = (index === 0 || this.depths[this.alphaRenderObjects[index-1].id] <= depth);
+    more = (index >= this.alphaRenderObjects.length || this.depths[this.alphaRenderObjects[index].id] >= depth);
+    if(less && more) {
+      this.alphaRenderObjects.splice(index, 0, object);
+      inserted = true;
+    } else {
+      itteration++;
+      var step = Math.ceil(this.alphaRenderObjects.length/(2*itteration));
+      if(!less) {
+        index -= step;
+      } else {
+        index += step;
+      }
+    }
+  }
+}
+
 /*
   Draw buffers using shader.
 */
 Viewport.prototype.Draw = function () {
   var gl = this.gl;
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  var cameraPosition = vec3.create(); //centroid
+  mat4.getTranslation(cameraPosition,this.lookAtMat);
+  var cameraRotation = quat.create();
+  mat4.getRotation(cameraRotation,this.lookAtMat);
+  this.alphaRenderObjects.length = 0;
+  this.depths.length = 0;
+  // First render opaque objects
+  this.gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   this.gl.enable(this.gl.DEPTH_TEST);
+
   for (var i = 0; i < this.triangleBuffers.length; i++) {
     this.triangleBuffers[i].SetLookMatrix(this.lookAtMat);
-    this.triangleBuffers[i].DrawElements();
+    this.triangleBuffers[i].SetPerspcMatrix(this.CreatePerspcMatrix());
+    if (!this.triangleBuffers[i].IsOpaque()) {
+      this.AddTransparentTriangle(this.triangleBuffers[i],
+                                  this.GetDepth(cameraPosition, cameraRotation, this.triangleBuffers[i].GetTranslation()));
+    } else {
+      this.triangleBuffers[i].DrawElements();
+    }
   }
-}
-
-Viewport.prototype.UpdateEyePosition = function () {
-  // var eye = vec4.fromValues(this.position[0], this.position[1], this.position[2], 1);
-  // vec4.transformMat4(eye, eye, this.lookAt);
-  this.gl.uniform3fv(this.shaderProgram.uEyePositionUniform, new Float32Array(this.position));
-  // this.gl.uniform3fv(this.shaderProgram.uEyePositionUniform, [eye[0],eye[1],eye[2]]);
+  // then render transparent objecs
+  this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
+  this.gl.enable(this.gl.BLEND);
+  this.gl.depthMask(false);
+  for(i = 0, l = this.alphaRenderObjects.length; i < l; i++) { this.alphaRenderObjects[i].DrawElements(); }
+  this.gl.disable(gl.BLEND);
+  this.gl.depthMask(true);
 }
 /*
   Continually request new frames from WebGL and render them in the browser.
@@ -349,6 +372,7 @@ Viewport.prototype.StartRenderLoop = function () {
       mat4.mul(vMatrix, rotationMatrix, vMatrix);
     }
     if (this.keyState.froll || this.keyState.broll) {
+
       mat4.rotateZ(rotationMatrix, mat4.create(), (this.keyState.froll) ? -1*angle : angle);
       mat4.mul(vMatrix, rotationMatrix, vMatrix);
     }
@@ -425,8 +449,6 @@ Viewport.prototype.StartRenderLoop = function () {
       mat4.fromRotationTranslation(mMatrix, rotationMatrix, oriTrans);// centroid);
       this.triangleBuffers[this.s].SetModelMatrix(mMatrix);
     }
-
-    this.UpdateEyePosition();
   }
   else {
     this.lastTime = Date.now();

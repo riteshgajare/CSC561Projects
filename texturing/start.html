@@ -8,43 +8,11 @@
     <script type="text/javascript" src="rasterize.js"></script>
     <script type="text/javascript" src="triangleBuffer.js"></script>
     <script type="text/javascript" src="viewport.js"></script>
-
-
   </head>
   <body onload="main();">
     <center><h1>Project: Rasterization</h1>
-      <!-- <h3>CSC561 - Computer Graphics</br>Ritesh Gajare<hr></h3> -->
-      <!-- Viewport (w*h) px: -->
-      <!-- <input id="w" type="text" name="width" placeholder="512"></input> -->
-      <!-- <input id="h" type="text" name="height" placeholder="512"></input>, Aspect_ratio (1:1): -->
-      <!-- <input id="asp_x" type="text" name="asp_x" placeholder="1"></input>:<input id="asp_y" type="text" name="asp_y"  placeholder="1"></input></br></br> -->
-
-      <!-- Eye Location (x,y,z): -->
-      <!-- <input id="x" type="text" name="ey1" placeholder="0.5" > </input> -->
-      <!-- <input id="y" type="text" name="ey2" placeholder="0.5" > </input> -->
-      <!-- <input id="z" type="text" name="ey3" placeholder="-0.5" > </input><br><br> -->
-      <!-- Look-at (x,y,z): -->
-      <!-- <input id="lx" type="text" name="la1" placeholder="0.5" > </input> -->
-      <!-- <input id="ly" type="text" name="la2" placeholder="0.5" > </input> -->
-      <!-- <input id="lz" type="text" name="la3" placeholder="1.0" > </input><br><br> -->
-      <!-- View-up (x,y,z): -->
-      <!-- <input id="vx" type="text" name="vp1" placeholder="0.0" > </input> -->
-      <!-- <input id="vy" type="text" name="vp2" placeholder="1.0" > </input> -->
-      <!-- <input id="vz" type="text" name="vp3" placeholder="0.0" > </input><br><br> -->
-      <!-- Lights (x,y,z): -->
-      <!-- <input id="clx" type="text" name="lp1" placeholder="2.0" > </input> -->
-      <!-- <input id="cly" type="text" name="lp2" placeholder="4.0" > </input> -->
-      <!-- <input id="clz" type="text" name="lp3" placeholder="-0.5" > </input><br><br> -->
-      <!-- Distance of viewpane: -->
-      <!-- <input id="d" type="text" name="d" placeholder="0.5" > </input></br></br> -->
-      <!-- Blinn Phong illuminiation: -->
-      <!-- <label class="switch"><input id="blinn" type="checkbox"><div class="slider round"></div></label></br></br> -->
       Lighting:
       <label class="switch"><input id="e_lights" type="checkbox"><div class="slider round"></div></label></br></br>
-      <!-- Shadows: -->
-      <!-- <label class="switch"><input id="shadows" type="checkbox"><div class="slider round"></div></label></br></br> -->
-      <!-- Render triangles: -->
-      <!-- <label class="switch"><input id="triangles" type="checkbox"><div class="slider round"></div></label></br></br> -->
       <button onclick="main(1);" class="button button1">Render</button><br><br>
       <canvas id="myWebGLCanvas" width="512" height="512"></canvas>
     </center>
