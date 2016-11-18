@@ -297,7 +297,7 @@ Viewport.prototype.Draw = function () {
   this.alphaRenderObjects.length = 0;
   this.depths.length = 0;
   // First render opaque objects
-  this.gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  this.gl.clear(gl.DEPTH_BUFFER_BIT);
   this.gl.enable(this.gl.DEPTH_TEST);
 
   for (var i = 0; i < this.triangleBuffers.length; i++) {

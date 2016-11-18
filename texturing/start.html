@@ -10,11 +10,12 @@
     <script type="text/javascript" src="viewport.js"></script>
   </head>
   <body onload="main();">
-    <center><h1>Project: Rasterization</h1>
-      Lighting:
-      <label class="switch"><input id="e_lights" type="checkbox"><div class="slider round"></div></label></br></br>
-      <button onclick="main(1);" class="button button1">Render</button><br><br>
+    <center>
+      <!-- <h1>Project: Texturing</h1> -->
+      <!-- <\!-- <label class="switch"><input id="e_lights" type="checkbox"><div class="slider round"></div></label></br></br> -\-> -->
+      <!-- <button onclick="main(1);" class="button button1">Render</button><br><br> -->
       <canvas id="myWebGLCanvas" width="512" height="512"></canvas>
+      <canvas id="myImageCanvas" width="512" height="512"></canvas>
     </center>
   </body>
   <style>
@@ -24,37 +25,18 @@
     height: 64vh;
     display: block;
     }
+    #myWebGLCanvas {
+    position: absolute;
+    z-index: 100;
+    }
+    #myImageCanvas {
+    position: absolute;
+    z-index: 0;
+    }
     h1{
     color: orange;
     font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
     font-size: 40px;
-    }
-    input[type=text] {
-    width: 50px;
-    box-sizing: border-box;
-    font-size: 16px;
-    font-family: "Lucida Console", Monaco, monospace;
-    background-color: white;
-    background-position: 10px 10px;
-    background-repeat: no-repeat;
-    -webkit-transition: width 0.4s ease-in-out;
-    transition: width 0.4s ease-in-out;
-    }
-    input[type=text]:focus {
-    width: 8%;
-    }
-    body{
-    width: 50%;
-    font-family: "Lucida Console", Monaco, monospace;
-    margin-left: 25%;
-    margin-right: 25%;
-    float: left;
-    height: inherit;
-    background-color:grey;
-    color:white;
-    }
-    #viewport{
-    background-color:black;
     }
     .button {
     background-color: black; /* Green */

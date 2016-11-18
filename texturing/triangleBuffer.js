@@ -132,7 +132,7 @@ TriangleBuffer.prototype.DrawElements = function () {
   this.gl.uniformMatrix4fv(this.shaderProgram.mMatrixUniform, false, this.mMatrix);
   this.gl.uniformMatrix4fv(this.shaderProgram.pvmMatrixUniform, false, pvmMatrix);
 
-  this.gl.uniform3fv(this.shaderProgram.pointLightingLocationUniform, [2,4,-0.5] );
+  this.gl.uniform3fv(this.shaderProgram.pointLightingLocationUniform, [-2,4,-0.5] );
 
   var normalMatrix = mat3.create();
   mat3.normalFromMat4(this.normalMatrix, mvMatrix);

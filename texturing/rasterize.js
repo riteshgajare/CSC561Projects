@@ -69,6 +69,16 @@ function setupWebGL() {
   gl = canvas.getContext("webgl"); // get a webgl object from it
   gl.width = canvas.width;
   gl.height = canvas.height;
+  var imageCanvas = document.getElementById("myImageCanvas"); // create a 2d canvas
+  var cw = imageCanvas.width, ch = imageCanvas.height;
+  imageContext = imageCanvas.getContext("2d");
+  var bkgdImage = new Image();
+  bkgdImage.src = "https://ncsucgclass.github.io/prog3/stars.jpg";
+  bkgdImage.onload = function(){
+    var iw = bkgdImage.width, ih = bkgdImage.height;
+    imageContext.drawImage(bkgdImage,0,0,iw,ih,0,0,cw,ch);
+  } // end onload callback
+
   try {
     if (gl == null) {
       throw "unable to create gl context -- is your browser gl ready?";
@@ -395,7 +405,6 @@ function parse_val(id, def){
 /* MAIN -- HERE is where execution begins after window load */
 
 function main() {
-  var lighting = (document.getElementById("e_lights").checked);
   setupWebGL(); // set up the webGL environment
   setupShaders(); // setup the webGL shaders
   gl.oMatrix = mat4.create();
@@ -413,7 +422,7 @@ function main() {
   //     var light = vec3.fromValues();
   //   }
   // }
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
+  gl.clear(gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
   //Ligthing setup
   gl.uniform3fv(shaderProgram.lightAmbientULoc,lightAmbient); // pass in the light's ambient emission
   gl.uniform3fv(shaderProgram.lightDiffuseULoc,lightDiffuse); // pass in the light's diffuse emission
